@@ -1,0 +1,17 @@
+{
+  "name": "d3",
+  "version": "1.0.0",
+  "description": ".",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ./server/server.js"
+  },
+  "keywords": [
+    "d3"
+  ],
+  "author": "Altair",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.16.3"
+  }
+}
