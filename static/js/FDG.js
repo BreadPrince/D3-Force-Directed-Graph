@@ -46,8 +46,8 @@ class FDG {
 
     start() {
         this.simulation = this.d3.forceSimulation(this.nodes)
-            .force('link', d3.forceLink().id((d) => {return d.name}))
-            .force("charge", d3.forceManyBody())
+            .force('link', d3.forceLink().id((d) => {return d.name}).distance([100]))
+            .force("charge", d3.forceManyBody().strength([-50]))
             .force("center", d3.forceCenter(this.width / 2, this.height / 2))
         
         let link = this.svg.append('g')
@@ -125,8 +125,8 @@ class FDG {
             .attr('fill', (d) => {
                     return this.color(d.group);
                 })
-            .attr("y", -20)
-            .attr("dy", ".71em")
+            .attr("y", -22)
+            .attr("dy", 10)
             .text((d) => { return d.name })
 
         this.simulation.nodes(this.nodes)
