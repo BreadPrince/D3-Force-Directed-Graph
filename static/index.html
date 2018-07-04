@@ -15,9 +15,13 @@
     .links line { stroke: #999; stroke-opacity: 0.6; }
     .link-desc text { font-size: 12px; fill-opacity: 0; text-shadow: 0 0 1px #fff; font-style: italic; }
     .nodes circle { stroke: #fff; stroke-width: 1.5px; }
-    .nodes text { font-size: 12px; font-family: sans-serif; color: #000; text-shadow: 0 0 1px #000;}
+    .nodes text { font-size: 12px; font-family: sans-serif; color: #000; text-shadow: 0 0 1px rgba(0, 0, 0, 0.6);}
     .nodes:hover { cursor: -webkit-grab; }
     .nodes:active { cursor: -webkit-grabbing; }
+    .axis-grid .domain { fill: rgb(37, 198, 252); fill-opacity: 0.8; stroke: none; }
+    .axis-x .domain, .axis-grid .tick line { stroke: #fff; } 
+    .axis-grid .tick-mirror line { stroke-opacity: 0.6; }
+    rect.selection { fill: rgb(0, 0, 0); fill-opacity: 0.6 }
     </style>
 </head>
 <body>
