@@ -8,29 +8,47 @@
 
     <script src="./libs/d3/d3.js"></script>
     <script src="./js/FDG.js"></script>
+    <script>
+        window.onload = () => {
+            window.fdg = new FDG(d3, '#d3-container')
+            fdg.init('data.json')
+
+            let refreshBtn = document.getElementById('refresh')
+            refreshBtn.addEventListener('click', (evt) => {
+                fdg.refresh(evt)
+            })
+        }
+    </script>
 
     <style>
-    body { background: #eee; }
+    * { box-sizing: border-box; }
+    html, body { background: #efffff; font-size: 14px; margin: 0; padding: 0; }
+    h1 { text-align: center; background: rgba(0,0,0,0.8); color: #fff; margin: 0; padding: 20px; margin-bottom: 30px; }
     #d3-container { width: 960px; height: 640px; margin: 0 auto; }
+    .graph-container { box-shadow: 0 0 50px rgba(0, 0, 0, 0.1); border-radius: 5px; background: #efffff; }
+    .timeline-container { margin: 20px auto 0; }
     .links line { stroke: #999; stroke-opacity: 0.6; }
     .link-desc text { font-size: 12px; fill-opacity: 0; text-shadow: 0 0 1px #fff; font-style: italic; }
     .nodes circle { stroke: #fff; stroke-width: 1.5px; }
-    .nodes text { font-size: 12px; font-family: sans-serif; color: #000; text-shadow: 0 0 1px rgba(0, 0, 0, 0.6);}
-    .nodes:hover { cursor: -webkit-grab; }
+    .nodes text { font-size: 14px; font-family: sans-serif; color: #000; text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);}
+    .nodes :hover { cursor: -webkit-grab; }
     .nodes:active { cursor: -webkit-grabbing; }
-    .axis-grid .domain { fill: rgb(37, 198, 252); fill-opacity: 0.8; stroke: none; }
+    .axis-grid .domain { fill: #ccc; fill-opacity: 0.8; stroke: none; }
     .axis-x .domain, .axis-grid .tick line { stroke: #fff; } 
     .axis-grid .tick-mirror line { stroke-opacity: 0.6; }
     rect.selection { fill: rgb(0, 0, 0); fill-opacity: 0.6 }
+    #handler { width: 360px; margin: 40px auto; display: flex; flex-direction: row; justify-content: space-around; }
+
+    .common-btn { border: 0; background: rgb(1, 128, 255); color: #fff; cursor: pointer; padding: 0.4rem 0.8rem; border-radius: 3px; } 
+    .common-btn:active { background: rgb(0, 94, 189); } 
+    .common-btn:focus { outline: none; }
     </style>
 </head>
 <body>
+    <h1>D3.js Force-Directed Graph Demo</h1>
     <div id="d3-container"></div>
-    <script>
-        window.onload = () => {
-            let fdg = new FDG(d3, '#d3-container')
-            fdg.init('data.json')
-        }
-    </script>
+    <div id="handler">
+        <button id="refresh" class="common-btn">Refresh</button>
+    </div>
 </body>
 </html>

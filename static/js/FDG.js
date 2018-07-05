@@ -3,19 +3,39 @@
  */
 class FDG {
     constructor (d3, selector) {
+        this.timelinePadding = 30
+        this.timelineHeight = 50
+
         this.d3 = d3
-        this.svg = this.d3.select(selector)
+        this.selector = selector
+        this.container = this.d3.select(this.selector)
+        this.graphContainer = this.container.append('div')
+            .attr('class', 'graph-container')
+            .style('width', this.container.style('width'))
+            .style('height', parseInt(this.container.style('height')) - this.timelineHeight + 'px')
+        this.timelineContainer = this.container.append('div')
+            .attr('class', 'timeline-container')
+            .style('width', this.container.style('width'))
+            .style('height', this.timelineHeight + 'px')
+        this.graphSvg = this.graphContainer
             .append('svg')
             .attr('width', '100%')
             .attr('height', '100%')
-        this.width = parseInt(this.svg.style('width'))
-        this.height = parseInt(this.svg.style('height'))
+        this.timelineSvg = this.timelineContainer
+            .append('svg')
+            .attr('width', '100%')
+            .attr('height', '100%')
+        this.width = parseInt(this.graphSvg.style('width'))
+        this.height = parseInt(this.graphSvg.style('height'))
         this.links = null
         this.weight_list = []
         this.year_list = []
         this.nodes = []
         this.color = this.d3.scaleOrdinal(d3.schemePaired);
         this.simulation = null
+        this.brushData = null
+        this.initialized = false
+        this.selection = []
     }
 
     /**
@@ -24,11 +44,17 @@ class FDG {
      * @param {string} url path of the json file
      */
     init (url) {
+        if (!url) return
+        this.url = url
         this.d3.json(url).then((res) => {
             this.weight_list = res.relationship_weight
-            this.links = res.data
+            this.data = JSON.stringify(res)
             this.prepareData()
-            this.start()
+            if (this.year_list.length >= 4) {
+                this.selection = [new Date(this.year_list[1], 0, 1), new Date(this.year_list[this.year_list.length - 2], 0, 1)]
+                this.brush_gen()
+                this.timeChanged()
+            }
         }, (err) => {
             if (err)
                 console.log(err)
@@ -39,23 +65,66 @@ class FDG {
      * Prepare the Nodes Array and years Set
      */
     prepareData () {
-        let nodes = new Set()
+        this.links = JSON.parse(this.data).data
         let years = new Set()
         for (let link of this.links) {
-            nodes.add(link.source)
-            nodes.add(link.target)
             years.add(link.year)
-        }
-        let count = 1
-        for (let node of nodes) {
-            this.nodes.push({
-                name: node,
-                group: count
-            })
-            count++
         }
         this.year_list = Array.from(years)
         this.year_list.sort((a, b) => {return a- b})
+    }
+
+    /**
+     * Generate Brush and Timeline
+     */
+    brush_gen() {
+        let that = this
+        let width = this.width - 2 * this.timelinePadding
+        let height = this.timelineHeight - 20
+        let axisX = d3.scaleTime()
+            .domain([new Date(this.year_list[0], 0, 1), new Date(this.year_list[this.year_list.length - 1], 0, 1)])
+            .rangeRound([0, width])
+        let container = this.timelineSvg.append('g')
+            .attr('width', width + 'px')
+            .attr('transform', 'translate(' + this.timelinePadding + ', 0)')
+        container.append('g')
+            .attr('class', 'axis axis-grid')
+            .attr('transform', 'translate(0, ' + height + ')')
+            .call(this.d3.axisBottom(axisX)
+                .ticks(this.d3.timeYear)
+                .tickSize(-height)
+                .tickFormat(() => {
+                    return null
+                }))
+            .selectAll('.tick')
+            .classed('tick-mirror', (d) => {
+                return d.getFullYear()
+            })
+
+        container.append('g')
+            .attr('class', 'axis axis-x')
+            .attr('transform', 'translate(0, ' + height + ')')
+            .call(this.d3.axisBottom(axisX)
+                .ticks(this.d3.timeYear)
+                .tickPadding(0))
+            .attr('text-anchor', null)
+            .selectAll('text')
+
+        let brushX = this.d3.brushX()
+            .extent([
+                [0, 0],
+                [width, height]
+            ])
+            .on('end', function () {
+                that.brushended(this, axisX)
+            })
+        let group = container.append('g')
+            .attr('class', 'brush')
+            .call(brushX)
+        if (!this.initialized) {
+            group.call(brushX.move, this.selection.map(axisX))
+            this.initialized = true
+        }
     }
 
     /**
@@ -66,12 +135,10 @@ class FDG {
             .force('link', d3.forceLink().id((d) => {return d.name}).distance([100]))
             .force("charge", d3.forceManyBody().strength([-50]))
             .force("center", d3.forceCenter(this.width / 2, this.height / 2))
-        
+
         let link = this.link_gen()
         let linkDesc = this.link_desc_gen()
         let node = this.node_gen(link, linkDesc)
-
-        this.brush_gen()
 
         this.simulation.nodes(this.nodes)
             .on('tick', () => {
@@ -86,7 +153,7 @@ class FDG {
      * Generate links -- lines between nodes
      */
     link_gen () {
-        let link = this.svg.append('g')
+        let link = this.graphSvg.append('g')
             .attr('class', 'links')
             .selectAll('line')
             .data(this.links)
@@ -106,7 +173,7 @@ class FDG {
      * Generate link's description
      */
     link_desc_gen () {
-        let linkDesc = this.svg.append('g')
+        let linkDesc = this.graphSvg.append('g')
             .attr('class', 'link-desc')
             .selectAll('text')
             .data(this.links)
@@ -124,7 +191,7 @@ class FDG {
      * @param {Selection} linkDesc The selection of link's description
      */
     node_gen(link, linkDesc) {
-        let node = this.svg.append('g')
+        let node = this.graphSvg.append('g')
             .attr('class', 'nodes')
             .selectAll('g')
             .data(this.nodes)
@@ -163,6 +230,10 @@ class FDG {
             .attr('fill', (d) => {
                 return this.color(d.group)
             })
+            .append('title')
+            .text((d) => {
+                return d.name
+            })
         node.append('text')
             .attr('fill', (d) => {
                 return this.color(d.group);
@@ -171,70 +242,6 @@ class FDG {
             .attr("dy", 10)
             .text((d) => { return d.name })
         return node
-    }
-
-    /**
-     * Generate Brush and Timeline
-     */
-    brush_gen () {
-        let that = this
-        let wPadding = 100;
-        let height = 30
-        let axisX = d3.scaleTime()
-            .domain([new Date(this.year_list[0], 0, 1), new Date(this.year_list[this.year_list.length - 1], 0, 1)])
-            .rangeRound([0, this.width - 2 * wPadding])
-        let container = this.svg.append('g')
-            .attr('transform', 'translate(' + wPadding + ', 560)')
-        container.append('g')
-            .attr('class', 'axis axis-grid')
-            .attr('transform', 'translate(0, ' + height + ')')
-            .call(this.d3.axisBottom(axisX)
-                .ticks(this.d3.timeYear)
-                .tickSize(-height)
-                .tickFormat(() => { return null }))
-            .selectAll('.tick')
-            .classed('tick-mirror', (d) => {
-                return d.getFullYear()
-            })
-        
-        container.append('g')
-            .attr('class', 'axis axis-x')
-            .attr('transform', 'translate(0, ' + height + ')')
-            .call(this.d3.axisBottom(axisX)
-                .ticks(this.d3.timeYear)
-                .tickPadding(0))
-            .attr('text-anchor', null)
-            .selectAll('text')
-
-        container.append('g')
-            .attr('class', 'brush')
-            .call(this.d3.brushX()
-                .extent([
-                    [0, 0],
-                    [this.width, height]
-                ])
-                .on('end', function () {
-                    that.brushended(this, axisX)
-                }))
-    }
-
-    /**
-     * Brush end event
-     * Snap grid
-     * @param {Group} brush brush's group
-     * @param {Continuous} axisX  continuous x axis
-     */
-    brushended(brush, axisX) {
-        if (!this.d3.event.sourceEvent) return
-        if (!this.d3.event.selection) return
-        let d0 = this.d3.event.selection.map(axisX.invert)
-        let d1 = d0.map(this.d3.timeYear.round)
-        if (d1[0] >= d1[1]) {
-            d1[0] = d3.timeYear.floor(d0[0])
-            d1[1] = d3.timeYear.offset(d1[0])
-        }
-
-        this.d3.select(brush).transition().call(this.d3.event.target.move, d1.map(axisX))
     }
 
     /**
@@ -257,6 +264,61 @@ class FDG {
 
         node
             .attr("transform", (d) => { return "translate(" + d.x + "," + d.y + ")"; })
+    }
+
+    /**
+     * Brush end event
+     * Snap grid
+     * @param {Group} brush brush's group
+     * @param {Continuous} axisX  continuous x axis
+     */
+    brushended (brush, axisX) {
+        if (!this.d3.event.sourceEvent) return
+        if (!this.d3.event.selection) {
+            this.d3.select(brush).transition().call(this.d3.event.target.move, this.selection.map(axisX))
+            return
+        }
+        let d0 = this.d3.event.selection.map(axisX.invert)
+        let d1 = d0.map(this.d3.timeYear.round)
+        if (d1[0] >= d1[1]) {
+            d1[0] = this.d3.timeYear.floor(d0[0])
+            d1[1] = this.d3.timeYear.offset(d1[0])
+        }
+
+        this.d3.select(brush).transition().call(this.d3.event.target.move, d1.map(axisX))
+
+        this.timeChanged(d1)
+    }
+
+    /**
+     * Change Links list and Nodes list
+     * @param {Array} t Date Array
+     */
+    timeChanged (t) {
+        if (t) this.selection = t
+        else if (this.selection) t = this.selection
+        else return
+        let minYear = t[0].getFullYear()
+        let maxYear = t[1].getFullYear()
+        this.links = []
+        this.nodes = []
+        let nodes = new Set()
+        for (let link of JSON.parse(this.data).data) {
+            if (link.year >= minYear && link.year <= maxYear) {
+                this.links.push(link)
+                nodes.add(link.source)
+                nodes.add(link.target)
+            }
+        }
+        let count = 1
+        for (let node of nodes) {
+            this.nodes.push({
+                name: node,
+                group: count
+            })
+            count++
+        }
+        this.refresh()
     }
 
     /**
@@ -286,5 +348,22 @@ class FDG {
         if (!d3.event.active) this.simulation.alphaTarget(0)
         d.fx = null
         d.fy = null
+    }
+
+    /**
+     * Refresh svg
+     * * @param {Event} evt Click event
+     */
+    refresh (evt) {
+        if (this.graphSvg) this.graphSvg.remove()
+        this.graphSvg = this.graphContainer
+            .append('svg')
+            .attr('width', '100%')
+            .attr('height', '100%')
+        if (evt) {
+            this.timeChanged(this.selection)
+        } else {
+            this.start()
+        }
     }
 }
